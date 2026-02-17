@@ -1,4 +1,5 @@
 import { Router } from "express";
+import type { CookieOptions } from "express";
 import bcrypt from "bcryptjs";
 import { UserModel } from "../models/User";
 import { validateBody } from "../middleware/validate";
@@ -8,6 +9,14 @@ import { signAccessToken } from "../services/token";
 import { requireAuth } from "../middleware/auth";
 
 export const authRouter = Router();
+
+const isProduction = process.env.NODE_ENV === "production";
+const authCookieOptions: CookieOptions = {
+  httpOnly: true,
+  sameSite: isProduction ? "none" : "lax",
+  secure: isProduction,
+  path: "/"
+};
 
 authRouter.post("/register", validateBody(registerSchema), async (req, res) => {
   const { email, password, displayName } = req.body;
@@ -21,7 +30,7 @@ authRouter.post("/register", validateBody(registerSchema), async (req, res) => {
   const user = await UserModel.create({ email: email.toLowerCase(), passwordHash, displayName });
 
   const token = signAccessToken(user._id.toString());
-  res.cookie("token", token, { httpOnly: true, sameSite: "lax" });
+  res.cookie("token", token, authCookieOptions);
 
   res.status(201).json({ id: user._id, email: user.email, displayName: user.displayName });
 });
@@ -40,13 +49,13 @@ authRouter.post("/login", validateBody(loginSchema), async (req, res) => {
   }
 
   const token = signAccessToken(user._id.toString());
-  res.cookie("token", token, { httpOnly: true, sameSite: "lax" });
+  res.cookie("token", token, authCookieOptions);
 
   res.json({ id: user._id, email: user.email, displayName: user.displayName });
 });
 
 authRouter.post("/logout", (_req, res) => {
-  res.clearCookie("token");
+  res.clearCookie("token", authCookieOptions);
   res.status(204).send();
 });
 

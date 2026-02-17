@@ -22,6 +22,10 @@ function Invoke-Robocopy {
 
 $root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $tmp = Join-Path $env:TEMP ("vercel-sync-" + [guid]::NewGuid().ToString("N"))
+$beforeRemoteCommit = ""
+$afterRemoteCommit = ""
+$createdCommit = $false
+$remoteUrl = ""
 
 try {
   Push-Location $root
@@ -35,13 +39,16 @@ try {
   if ($LASTEXITCODE -ne 0) {
     throw "Git remote '$Remote' does not exist."
   }
+  $remoteUrl = (git remote get-url $Remote).Trim()
 
   Pop-Location
 
   git clone --quiet --no-hardlinks $root $tmp | Out-Null
 
   Push-Location $tmp
+  git remote set-url $Remote $remoteUrl | Out-Null
 
+  $beforeRemoteCommit = (git ls-remote --heads $Remote $Branch | ForEach-Object { ($_ -split "`t")[0] } | Select-Object -First 1)
   $remoteBranchLine = git ls-remote --heads $Remote $Branch
   if ([string]::IsNullOrWhiteSpace($remoteBranchLine)) {
     git checkout --orphan $Branch | Out-Null
@@ -78,12 +85,26 @@ try {
       $CommitMessage = "chore: sync vercel snapshot " + (Get-Date -Format "yyyy-MM-dd HH:mm:ss")
     }
     git commit -m $CommitMessage | Out-Null
+    $createdCommit = $true
   }
 
   git push $Remote $Branch --force | Out-Null
+  $afterRemoteCommit = (git ls-remote --heads $Remote $Branch | ForEach-Object { ($_ -split "`t")[0] } | Select-Object -First 1)
   Pop-Location
 
-  Write-Host "Vercel branch '$Branch' synced and pushed to '$Remote'."
+  if ($createdCommit) {
+    Write-Host "Vercel branch '$Branch' updated and pushed to '$Remote'."
+    Write-Host "Remote commit: $afterRemoteCommit"
+  }
+  elseif ($beforeRemoteCommit -eq $afterRemoteCommit -and -not [string]::IsNullOrWhiteSpace($afterRemoteCommit)) {
+    Write-Host "No changes detected for '$Branch'. Remote unchanged at $afterRemoteCommit."
+  }
+  else {
+    Write-Host "Vercel branch '$Branch' pushed to '$Remote'."
+    if (-not [string]::IsNullOrWhiteSpace($afterRemoteCommit)) {
+      Write-Host "Remote commit: $afterRemoteCommit"
+    }
+  }
 }
 finally {
   if (Test-Path $tmp) {
