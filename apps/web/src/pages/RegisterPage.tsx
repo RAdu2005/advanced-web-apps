@@ -24,7 +24,12 @@ export function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
+    <div className="min-h-screen flex items-center justify-center flex-col p-4">
+      <div className="flex items-center justify-center flex-col pb-12">
+        <h1 className="pb-1 font-bold text-3xl">Radu's Docshare</h1>
+        <h2 className="text-lg text-slate-500">Enjoy your time!</h2>
+      </div>
+
       <form className="w-full max-w-md rounded-lg bg-white p-6 shadow space-y-4" onSubmit={handleSubmit}>
         <h1 className="text-xl font-semibold">Register</h1>
         <input
