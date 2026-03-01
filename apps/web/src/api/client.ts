@@ -59,6 +59,7 @@ export const api = {
   listDocuments: () => request<DriveDocument[]>("/documents"),
   createDocument: (payload: { title: string; content: string }) =>
     request<DriveDocument>("/documents", { method: "POST", body: JSON.stringify(payload) }),
+  cloneDocument: (id: string) => request<DriveDocument>(`/documents/${id}/clone`, { method: "POST" }),
   getDocument: (id: string) => request<DriveDocument>(`/documents/${id}`),
   updateDocument: (id: string, payload: Partial<Pick<DriveDocument, "title" | "content">>) =>
     request<DriveDocument>(`/documents/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),

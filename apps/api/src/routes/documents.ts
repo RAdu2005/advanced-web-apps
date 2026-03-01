@@ -14,6 +14,26 @@ import { editingPolicy } from "../services/editing-policy";
 export const documentsRouter = Router();
 documentsRouter.use(requireAuth);
 
+const MAX_TITLE_LENGTH = 120;
+
+function normalizeBaseTitle(input: string): string {
+  const trimmed = input.trim();
+  if (!trimmed) {
+    return "Untitled document";
+  }
+
+  const match = trimmed.match(/^(.*?)(?: - Copy(?: \((\d+)\))?)?$/);
+  const base = (match?.[1] ?? trimmed).trim();
+  return base || "Untitled document";
+}
+
+function buildClonedTitle(baseTitle: string, copyIndex: number): string {
+  const suffix = copyIndex === 1 ? " - Copy" : ` - Copy (${copyIndex})`;
+  const maxBaseLength = Math.max(1, MAX_TITLE_LENGTH - suffix.length);
+  const clippedBase = baseTitle.slice(0, maxBaseLength).trimEnd() || "Document";
+  return `${clippedBase}${suffix}`;
+}
+
 documentsRouter.get("/", async (req, res) => {
   const userId = new Types.ObjectId(req.user!.id);
 
@@ -46,6 +66,35 @@ documentsRouter.post("/", validateBody(createDocumentSchema), async (req, res) =
   });
 
   res.status(201).json(doc);
+});
+
+documentsRouter.post("/:id/clone", async (req, res) => {
+  await assertCanAccessDocument(req.params.id, req.user!.id);
+
+  const source = await DocumentModel.findById(req.params.id).lean();
+  if (!source) {
+    throw new AppError(404, "DOCUMENT_NOT_FOUND", "Document not found");
+  }
+
+  const ownerId = new Types.ObjectId(req.user!.id);
+  const ownDocs = await DocumentModel.find({ ownerId }).select({ title: 1 }).lean();
+  const existingTitles = new Set(ownDocs.map((doc) => doc.title));
+  const baseTitle = normalizeBaseTitle(source.title);
+
+  let index = 1;
+  let clonedTitle = buildClonedTitle(baseTitle, index);
+  while (existingTitles.has(clonedTitle)) {
+    index += 1;
+    clonedTitle = buildClonedTitle(baseTitle, index);
+  }
+
+  const cloned = await DocumentModel.create({
+    ownerId,
+    title: clonedTitle,
+    content: source.content
+  });
+
+  res.status(201).json(cloned);
 });
 
 documentsRouter.get("/:id", async (req, res) => {

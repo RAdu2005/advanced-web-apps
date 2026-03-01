@@ -140,6 +140,26 @@ describe("API integration", () => {
     expect(publicRes.body.content).toBe("public text");
   });
 
+  it("clones document with Windows-style copy naming in owner's list", async () => {
+    const owner = await registerUser("clone-owner@test.com", "password1", "Owner");
+    const ownerCookie = owner.headers["set-cookie"][0];
+
+    const createRes = await request(app)
+      .post("/documents")
+      .set("Cookie", ownerCookie)
+      .send({ title: "Plan", content: "First version" });
+    const sourceId = createRes.body._id;
+
+    const clone1 = await request(app).post(`/documents/${sourceId}/clone`).set("Cookie", ownerCookie);
+    expect(clone1.status).toBe(201);
+    expect(clone1.body.title).toBe("Plan - Copy");
+    expect(clone1.body.content).toBe("First version");
+
+    const clone2 = await request(app).post(`/documents/${sourceId}/clone`).set("Cookie", ownerCookie);
+    expect(clone2.status).toBe(201);
+    expect(clone2.body.title).toBe("Plan - Copy (2)");
+  });
+
   it("single writer lock blocks other users", async () => {
     const owner = await registerUser("lock-owner@test.com", "password1", "Owner");
     const ownerCookie = owner.headers["set-cookie"][0];
