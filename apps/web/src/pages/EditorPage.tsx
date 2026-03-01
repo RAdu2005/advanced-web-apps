@@ -1,7 +1,9 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import ReactQuill from "react-quill";
 import { api, type DriveDocument } from "../api/client";
 import { useAuth } from "../context/AuthContext";
+import { downloadDocumentAsPdf } from "../utils/pdf";
 
 interface EditorPermission {
   userId: string;
@@ -11,6 +13,30 @@ interface EditorPermission {
 function normalizeId(doc: DriveDocument): string {
   return doc.id ?? doc._id;
 }
+
+const quillModules = {
+  toolbar: [
+    [{ header: [1, 2, false] }],
+    ["bold", "italic", "underline", "strike"],
+    [{ list: "ordered" }, { list: "bullet" }],
+    ["blockquote", "code-block"],
+    ["link"],
+    ["clean"]
+  ]
+};
+
+const quillFormats = [
+  "header",
+  "bold",
+  "italic",
+  "underline",
+  "strike",
+  "list",
+  "bullet",
+  "blockquote",
+  "code-block",
+  "link"
+];
 
 export function EditorPage() {
   const { id } = useParams();
@@ -23,8 +49,10 @@ export function EditorPage() {
   const [shareLink, setShareLink] = useState("");
   const [editorEmail, setEditorEmail] = useState("");
   const [editorError, setEditorError] = useState("");
+  const [pdfLoading, setPdfLoading] = useState(false);
   const [editors, setEditors] = useState<EditorPermission[]>([]);
   const heartbeatRef = useRef<number | null>(null);
+  const quillRef = useRef<ReactQuill | null>(null);
 
   const isOwner = useMemo(() => Boolean(doc && user && doc.ownerId === user.id), [doc, user]);
 
@@ -140,6 +168,21 @@ export function EditorPage() {
     await loadDocument();
   }
 
+  async function downloadPdf() {
+    const delta = quillRef.current?.getEditor().getContents();
+    if (!delta) {
+      setStatus("Could not export document to PDF.");
+      return;
+    }
+
+    setPdfLoading(true);
+    try {
+      await downloadDocumentAsPdf({ title, delta });
+    } finally {
+      setPdfLoading(false);
+    }
+  }
+
   return (
     <div className="min-h-screen p-4 md:p-8">
       <div className="mx-auto max-w-6xl space-y-4">
@@ -156,15 +199,27 @@ export function EditorPage() {
               onChange={(event) => setTitle(event.target.value)}
               disabled={lockBlocked}
             />
-            <textarea
-              className="h-[420px] w-full rounded border p-2"
+            <ReactQuill
+              ref={quillRef}
+              theme="snow"
               value={content}
-              onChange={(event) => setContent(event.target.value)}
-              disabled={lockBlocked}
+              onChange={setContent}
+              readOnly={lockBlocked}
+              modules={quillModules}
+              formats={quillFormats}
+              className="h-[420px] [&_.ql-container]:h-[370px]"
             />
             <div className="flex gap-2">
               <button className="rounded bg-slate-900 px-4 py-2 text-white disabled:opacity-50" disabled={lockBlocked || !doc}>
                 Save
+              </button>
+              <button
+                className="rounded border px-4 py-2 disabled:opacity-50"
+                type="button"
+                onClick={() => void downloadPdf()}
+                disabled={!doc || pdfLoading}
+              >
+                {pdfLoading ? "Generating PDF..." : "Download PDF"}
               </button>
               {lockBlocked ? (
                 <button className="rounded border px-4 py-2" type="button" onClick={resumeEditing}>

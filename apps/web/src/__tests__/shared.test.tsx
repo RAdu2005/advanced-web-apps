@@ -32,6 +32,6 @@ describe("SharedPage", () => {
     await waitFor(() => expect(readShared).toHaveBeenCalledWith("token123"));
 
     expect(screen.getByText("Shared Doc")).toBeInTheDocument();
-    expect(screen.getByDisplayValue("Read only text")).toHaveAttribute("readOnly");
+    expect(screen.getByText("Read only text")).toBeInTheDocument();
   });
 });

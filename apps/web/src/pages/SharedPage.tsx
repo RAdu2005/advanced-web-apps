@@ -37,7 +37,9 @@ export function SharedPage() {
           <h1 className="text-xl font-semibold">{title}</h1>
           <Link to="/login" className="text-blue-700">Login</Link>
         </div>
-        <textarea className="h-[420px] w-full rounded border p-2" value={content} readOnly />
+        <div className="ql-snow">
+          <div className="ql-editor min-h-[420px]" dangerouslySetInnerHTML={{ __html: content }} />
+        </div>
       </div>
     </div>
   );
