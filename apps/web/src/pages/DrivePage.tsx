@@ -11,10 +11,13 @@ export function DrivePage() {
   const { logout, user } = useAuth();
   const navigate = useNavigate();
   const [documents, setDocuments] = useState<DriveDocument[]>([]);
+  const [trashedDocuments, setTrashedDocuments] = useState<DriveDocument[]>([]);
   const [newTitle, setNewTitle] = useState("Untitled document");
   const [sortBy, setSortBy] = useState("updated_desc");
+  const [recycleBinOpen, setRecycleBinOpen] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [trashLoading, setTrashLoading] = useState(true);
 
   const sortedDocuments = useMemo(() => {
     const docs = [...documents];
@@ -40,21 +43,34 @@ export function DrivePage() {
     return docs;
   }, [documents, sortBy]);
 
-  async function loadDocuments() {
+  const sortedTrashedDocuments = useMemo(() => {
+    const docs = [...trashedDocuments];
+    docs.sort((a, b) => {
+      const left = a.deletedAt ? new Date(a.deletedAt).getTime() : 0;
+      const right = b.deletedAt ? new Date(b.deletedAt).getTime() : 0;
+      return right - left;
+    });
+    return docs;
+  }, [trashedDocuments]);
+
+  async function loadDriveData() {
     setLoading(true);
+    setTrashLoading(true);
     try {
-      const docs = await api.listDocuments();
+      const [docs, trash] = await Promise.all([api.listDocuments(), api.listTrash()]);
       setDocuments(docs);
+      setTrashedDocuments(trash);
     } catch (e) {
       const message = typeof e === "object" && e && "message" in e ? String(e.message) : "Failed to load";
       setError(message);
     } finally {
       setLoading(false);
+      setTrashLoading(false);
     }
   }
 
   useEffect(() => {
-    void loadDocuments();
+    void loadDriveData();
   }, []);
 
   async function createDocument(event: FormEvent) {
@@ -64,7 +80,7 @@ export function DrivePage() {
     try {
       await api.createDocument({ title: newTitle, content: "" });
       setNewTitle("Untitled document");
-      await loadDocuments();
+      await loadDriveData();
     } catch (e) {
       const message = typeof e === "object" && e && "message" in e ? String(e.message) : "Create failed";
       setError(message);
@@ -75,12 +91,12 @@ export function DrivePage() {
     const nextTitle = window.prompt("New title", title);
     if (!nextTitle || nextTitle === title) return;
     await api.updateDocument(id, { title: nextTitle });
-    await loadDocuments();
+    await loadDriveData();
   }
 
   async function removeDocument(id: string) {
     await api.deleteDocument(id);
-    await loadDocuments();
+    await loadDriveData();
   }
 
   async function cloneDocument(id: string) {
@@ -88,9 +104,31 @@ export function DrivePage() {
 
     try {
       await api.cloneDocument(id);
-      await loadDocuments();
+      await loadDriveData();
     } catch (e) {
       const message = typeof e === "object" && e && "message" in e ? String(e.message) : "Clone failed";
+      setError(message);
+    }
+  }
+
+  async function restoreDocument(id: string) {
+    setError("");
+    try {
+      await api.restoreDocument(id);
+      await loadDriveData();
+    } catch (e) {
+      const message = typeof e === "object" && e && "message" in e ? String(e.message) : "Restore failed";
+      setError(message);
+    }
+  }
+
+  async function emptyRecycleBin() {
+    setError("");
+    try {
+      await api.emptyTrash();
+      await loadDriveData();
+    } catch (e) {
+      const message = typeof e === "object" && e && "message" in e ? String(e.message) : "Could not empty recycle bin";
       setError(message);
     }
   }
@@ -177,6 +215,55 @@ export function DrivePage() {
               </div>
             ))}
           </div>
+        </section>
+
+        <section className="rounded-lg bg-white p-4 shadow">
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <button
+              className="text-left text-lg font-semibold"
+              onClick={() => setRecycleBinOpen((value) => !value)}
+            >
+              {recycleBinOpen ? "Hide recycle bin" : "Show recycle bin"} ({trashedDocuments.length})
+            </button>
+            {trashedDocuments.length > 0 ? (
+              <button
+                className="rounded border border-red-300 px-3 py-2 text-sm text-red-700"
+                onClick={() => void emptyRecycleBin()}
+              >
+                Empty recycle bin
+              </button>
+            ) : null}
+          </div>
+
+          {recycleBinOpen ? (
+            <div className="mt-4 space-y-3">
+              {trashLoading ? <p>Loading recycle bin...</p> : null}
+              {!trashLoading && sortedTrashedDocuments.length === 0 ? (
+                <p className="text-slate-600">Recycle bin is empty.</p>
+              ) : null}
+
+              {sortedTrashedDocuments.map((doc) => (
+                <div
+                  key={docId(doc)}
+                  className="rounded border border-slate-200 p-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between"
+                >
+                  <div>
+                    <p className="font-medium">{doc.title}</p>
+                    <p className="text-xs text-slate-500">
+                      Deleted {doc.deletedAt ? new Date(doc.deletedAt).toLocaleString() : "-"}
+                    </p>
+                    <p className="text-xs text-slate-500">Created {new Date(doc.createdAt).toLocaleString()}</p>
+                  </div>
+                  <button
+                    className="rounded border px-3 py-1.5 text-sm"
+                    onClick={() => void restoreDocument(docId(doc))}
+                  >
+                    Restore
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </section>
       </div>
     </div>

@@ -122,6 +122,54 @@ describe("API integration", () => {
     expect(deleteRes.status).toBe(403);
   });
 
+  it("auto-renames newly created duplicates using Windows copy naming", async () => {
+    const owner = await registerUser("create-copy@test.com", "password1", "Owner");
+    const ownerCookie = owner.headers["set-cookie"][0];
+
+    const first = await request(app)
+      .post("/documents")
+      .set("Cookie", ownerCookie)
+      .send({ title: "Notes", content: "" });
+    expect(first.status).toBe(201);
+    expect(first.body.title).toBe("Notes");
+
+    const second = await request(app)
+      .post("/documents")
+      .set("Cookie", ownerCookie)
+      .send({ title: "Notes", content: "" });
+    expect(second.status).toBe(201);
+    expect(second.body.title).toBe("Notes - Copy");
+
+    const third = await request(app)
+      .post("/documents")
+      .set("Cookie", ownerCookie)
+      .send({ title: "Notes", content: "" });
+    expect(third.status).toBe(201);
+    expect(third.body.title).toBe("Notes - Copy (2)");
+  });
+
+  it("rejects rename when another active owner document already uses that title", async () => {
+    const owner = await registerUser("rename-conflict@test.com", "password1", "Owner");
+    const ownerCookie = owner.headers["set-cookie"][0];
+
+    const a = await request(app)
+      .post("/documents")
+      .set("Cookie", ownerCookie)
+      .send({ title: "Alpha", content: "" });
+    const b = await request(app)
+      .post("/documents")
+      .set("Cookie", ownerCookie)
+      .send({ title: "Beta", content: "" });
+
+    const rename = await request(app)
+      .patch(`/documents/${b.body._id}`)
+      .set("Cookie", ownerCookie)
+      .send({ title: "Alpha" });
+
+    expect(rename.status).toBe(409);
+    expect(rename.body.code).toBe("DOCUMENT_NAME_EXISTS");
+  });
+
   it("public share token returns read-only doc", async () => {
     const owner = await registerUser("share@test.com", "password1", "Owner");
     const ownerCookie = owner.headers["set-cookie"][0];
@@ -158,6 +206,45 @@ describe("API integration", () => {
     const clone2 = await request(app).post(`/documents/${sourceId}/clone`).set("Cookie", ownerCookie);
     expect(clone2.status).toBe(201);
     expect(clone2.body.title).toBe("Plan - Copy (2)");
+  });
+
+  it("moves deleted docs to recycle bin, restores, and empties bin", async () => {
+    const owner = await registerUser("trash-owner@test.com", "password1", "Owner");
+    const ownerCookie = owner.headers["set-cookie"][0];
+
+    const createRes = await request(app)
+      .post("/documents")
+      .set("Cookie", ownerCookie)
+      .send({ title: "Trash me", content: "temp" });
+    const docId = createRes.body._id;
+
+    const softDelete = await request(app).delete(`/documents/${docId}`).set("Cookie", ownerCookie);
+    expect(softDelete.status).toBe(204);
+
+    const activeList = await request(app).get("/documents").set("Cookie", ownerCookie);
+    expect(activeList.status).toBe(200);
+    expect(activeList.body.find((doc: { id: string }) => doc.id === docId)).toBeUndefined();
+
+    const trashList = await request(app).get("/documents/trash").set("Cookie", ownerCookie);
+    expect(trashList.status).toBe(200);
+    expect(trashList.body.length).toBe(1);
+    expect(trashList.body[0].id).toBe(docId);
+
+    const restore = await request(app).post(`/documents/${docId}/restore`).set("Cookie", ownerCookie);
+    expect(restore.status).toBe(200);
+
+    const activeAfterRestore = await request(app).get("/documents").set("Cookie", ownerCookie);
+    expect(activeAfterRestore.status).toBe(200);
+    expect(activeAfterRestore.body.find((doc: { id: string }) => doc.id === docId)).toBeTruthy();
+
+    await request(app).delete(`/documents/${docId}`).set("Cookie", ownerCookie);
+    const empty = await request(app).delete("/documents/trash").set("Cookie", ownerCookie);
+    expect(empty.status).toBe(200);
+    expect(empty.body.deletedCount).toBe(1);
+
+    const trashAfterEmpty = await request(app).get("/documents/trash").set("Cookie", ownerCookie);
+    expect(trashAfterEmpty.status).toBe(200);
+    expect(trashAfterEmpty.body.length).toBe(0);
   });
 
   it("single writer lock blocks other users", async () => {

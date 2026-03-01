@@ -5,7 +5,7 @@ import { AppError } from "../middleware/error-handler";
 export const shareRouter = Router();
 
 shareRouter.get("/:token", async (req, res) => {
-  const doc = await DocumentModel.findOne({ sharedReadToken: req.params.token }).lean();
+  const doc = await DocumentModel.findOne({ sharedReadToken: req.params.token, deletedAt: null }).lean();
   if (!doc) {
     throw new AppError(404, "SHARED_DOCUMENT_NOT_FOUND", "Shared document not found");
   }

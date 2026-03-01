@@ -6,9 +6,13 @@ import { DrivePage } from "../pages/DrivePage";
 const { apiMock } = vi.hoisted(() => ({
   apiMock: {
     listDocuments: vi.fn().mockResolvedValue([]),
+    listTrash: vi.fn().mockResolvedValue([]),
     createDocument: vi.fn().mockResolvedValue({}),
     updateDocument: vi.fn().mockResolvedValue({}),
-    deleteDocument: vi.fn().mockResolvedValue(undefined)
+    deleteDocument: vi.fn().mockResolvedValue(undefined),
+    cloneDocument: vi.fn().mockResolvedValue({}),
+    restoreDocument: vi.fn().mockResolvedValue({}),
+    emptyTrash: vi.fn().mockResolvedValue({ deletedCount: 0 })
   }
 }));
 
@@ -32,6 +36,7 @@ describe("DrivePage", () => {
     );
 
     await waitFor(() => expect(apiMock.listDocuments).toHaveBeenCalled());
+    await waitFor(() => expect(apiMock.listTrash).toHaveBeenCalled());
 
     fireEvent.change(screen.getByPlaceholderText("Document title"), { target: { value: "My doc" } });
     fireEvent.click(screen.getByRole("button", { name: "Create document" }));

@@ -11,6 +11,7 @@ export interface DriveDocument {
   title: string;
   content: string;
   sharedReadToken: string | null;
+  deletedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -57,9 +58,12 @@ export const api = {
   me: () => request<User>("/auth/me"),
   logout: () => request<void>("/auth/logout", { method: "POST" }),
   listDocuments: () => request<DriveDocument[]>("/documents"),
+  listTrash: () => request<DriveDocument[]>("/documents/trash"),
   createDocument: (payload: { title: string; content: string }) =>
     request<DriveDocument>("/documents", { method: "POST", body: JSON.stringify(payload) }),
   cloneDocument: (id: string) => request<DriveDocument>(`/documents/${id}/clone`, { method: "POST" }),
+  restoreDocument: (id: string) => request<DriveDocument>(`/documents/${id}/restore`, { method: "POST" }),
+  emptyTrash: () => request<{ deletedCount: number }>("/documents/trash", { method: "DELETE" }),
   getDocument: (id: string) => request<DriveDocument>(`/documents/${id}`),
   updateDocument: (id: string, payload: Partial<Pick<DriveDocument, "title" | "content">>) =>
     request<DriveDocument>(`/documents/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),

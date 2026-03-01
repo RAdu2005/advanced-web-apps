@@ -2,6 +2,7 @@ import { Router } from "express";
 import { Types } from "mongoose";
 import { DocumentModel } from "../models/Document";
 import { DocumentPermissionModel } from "../models/DocumentPermission";
+import { EditingSessionModel } from "../models/EditingSession";
 import { UserModel } from "../models/User";
 import { requireAuth } from "../middleware/auth";
 import { validateBody } from "../middleware/validate";
@@ -34,34 +35,83 @@ function buildClonedTitle(baseTitle: string, copyIndex: number): string {
   return `${clippedBase}${suffix}`;
 }
 
-documentsRouter.get("/", async (req, res) => {
-  const userId = new Types.ObjectId(req.user!.id);
+async function getActiveTitleSet(ownerId: Types.ObjectId, excludeDocumentId?: Types.ObjectId): Promise<Set<string>> {
+  const query: { ownerId: Types.ObjectId; deletedAt: null; _id?: { $ne: Types.ObjectId } } = {
+    ownerId,
+    deletedAt: null
+  };
 
-  const ownedDocs = await DocumentModel.find({ ownerId: userId }).lean();
-  const permissions = await DocumentPermissionModel.find({ userId, role: "editor" }).lean();
-  const permissionDocIds = permissions.map((p) => p.documentId);
-  const editableDocs = permissionDocIds.length
-    ? await DocumentModel.find({ _id: { $in: permissionDocIds } }).lean()
-    : [];
+  if (excludeDocumentId) {
+    query._id = { $ne: excludeDocumentId };
+  }
 
-  const docs = [...ownedDocs, ...editableDocs].map((doc) => ({
+  const ownDocs = await DocumentModel.find(query).select({ title: 1 }).lean();
+  return new Set(ownDocs.map((doc) => doc.title));
+}
+
+function getUniqueCreatedTitle(requestedTitle: string, existingTitles: Set<string>): string {
+  const normalizedRequested = requestedTitle.trim() || "Untitled document";
+  if (!existingTitles.has(normalizedRequested)) {
+    return normalizedRequested;
+  }
+
+  const baseTitle = normalizeBaseTitle(normalizedRequested);
+  let index = 1;
+  let candidate = buildClonedTitle(baseTitle, index);
+  while (existingTitles.has(candidate)) {
+    index += 1;
+    candidate = buildClonedTitle(baseTitle, index);
+  }
+
+  return candidate;
+}
+
+function toDriveDocument(doc: {
+  _id: Types.ObjectId;
+  title: string;
+  content: string;
+  ownerId: Types.ObjectId;
+  createdAt: Date;
+  updatedAt: Date;
+  sharedReadToken?: string;
+  deletedAt: Date | null;
+}) {
+  return {
     id: doc._id,
     title: doc.title,
     content: doc.content,
     ownerId: doc.ownerId,
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
-    sharedReadToken: doc.sharedReadToken ?? null
-  }));
+    sharedReadToken: doc.sharedReadToken ?? null,
+    deletedAt: doc.deletedAt
+  };
+}
+
+documentsRouter.get("/", async (req, res) => {
+  const userId = new Types.ObjectId(req.user!.id);
+
+  const ownedDocs = await DocumentModel.find({ ownerId: userId, deletedAt: null }).lean();
+  const permissions = await DocumentPermissionModel.find({ userId, role: "editor" }).lean();
+  const permissionDocIds = permissions.map((p) => p.documentId);
+  const editableDocs = permissionDocIds.length
+    ? await DocumentModel.find({ _id: { $in: permissionDocIds }, deletedAt: null }).lean()
+    : [];
+
+  const docs = [...ownedDocs, ...editableDocs].map(toDriveDocument);
 
   res.json(docs);
 });
 
 documentsRouter.post("/", validateBody(createDocumentSchema), async (req, res) => {
   const { title, content } = req.body;
+  const ownerId = new Types.ObjectId(req.user!.id);
+  const existingTitles = await getActiveTitleSet(ownerId);
+  const uniqueTitle = getUniqueCreatedTitle(title, existingTitles);
+
   const doc = await DocumentModel.create({
-    ownerId: new Types.ObjectId(req.user!.id),
-    title,
+    ownerId,
+    title: uniqueTitle,
     content
   });
 
@@ -77,8 +127,7 @@ documentsRouter.post("/:id/clone", async (req, res) => {
   }
 
   const ownerId = new Types.ObjectId(req.user!.id);
-  const ownDocs = await DocumentModel.find({ ownerId }).select({ title: 1 }).lean();
-  const existingTitles = new Set(ownDocs.map((doc) => doc.title));
+  const existingTitles = await getActiveTitleSet(ownerId);
   const baseTitle = normalizeBaseTitle(source.title);
 
   let index = 1;
@@ -97,6 +146,50 @@ documentsRouter.post("/:id/clone", async (req, res) => {
   res.status(201).json(cloned);
 });
 
+documentsRouter.get("/trash", async (req, res) => {
+  const ownerId = new Types.ObjectId(req.user!.id);
+  const trashed = await DocumentModel.find({ ownerId, deletedAt: { $ne: null } }).sort({ deletedAt: -1 }).lean();
+  res.json(trashed.map(toDriveDocument));
+});
+
+documentsRouter.delete("/trash", async (req, res) => {
+  const ownerId = new Types.ObjectId(req.user!.id);
+  const trashed = await DocumentModel.find({ ownerId, deletedAt: { $ne: null } }).select({ _id: 1 }).lean();
+  const ids = trashed.map((doc) => doc._id);
+
+  if (ids.length > 0) {
+    await DocumentPermissionModel.deleteMany({ documentId: { $in: ids } });
+    await EditingSessionModel.deleteMany({ documentId: { $in: ids } });
+    await DocumentModel.deleteMany({ _id: { $in: ids } });
+  }
+
+  res.json({ deletedCount: ids.length });
+});
+
+documentsRouter.post("/:id/restore", async (req, res) => {
+  const ownerId = new Types.ObjectId(req.user!.id);
+  const documentId = new Types.ObjectId(req.params.id);
+  const trashed = await DocumentModel.findOne({ _id: documentId, ownerId, deletedAt: { $ne: null } }).lean();
+
+  if (!trashed) {
+    throw new AppError(404, "DOCUMENT_NOT_FOUND", "Document not found");
+  }
+
+  const existingTitles = await getActiveTitleSet(ownerId);
+  const restoredTitle = getUniqueCreatedTitle(trashed.title, existingTitles);
+  const restored = await DocumentModel.findOneAndUpdate(
+    { _id: documentId, ownerId, deletedAt: { $ne: null } },
+    { deletedAt: null, title: restoredTitle },
+    { new: true }
+  ).lean();
+
+  if (!restored) {
+    throw new AppError(404, "DOCUMENT_NOT_FOUND", "Document not found");
+  }
+
+  res.json(toDriveDocument(restored));
+});
+
 documentsRouter.get("/:id", async (req, res) => {
   await assertCanAccessDocument(req.params.id, req.user!.id);
 
@@ -110,6 +203,21 @@ documentsRouter.get("/:id", async (req, res) => {
 
 documentsRouter.patch("/:id", validateBody(updateDocumentSchema), async (req, res) => {
   await assertCanAccessDocument(req.params.id, req.user!.id);
+
+  const existing = await DocumentModel.findById(req.params.id);
+  if (!existing || existing.deletedAt) {
+    throw new AppError(404, "DOCUMENT_NOT_FOUND", "Document not found");
+  }
+
+  if (typeof req.body.title === "string") {
+    const normalizedTitle = req.body.title.trim();
+    const activeTitles = await getActiveTitleSet(existing.ownerId, existing._id);
+    if (activeTitles.has(normalizedTitle)) {
+      throw new AppError(409, "DOCUMENT_NAME_EXISTS", "A document with this name already exists");
+    }
+
+    req.body.title = normalizedTitle;
+  }
 
   const lockStatus = await editingPolicy.status(req.params.id);
   if (lockStatus.locked && lockStatus.userId !== req.user!.id) {
@@ -126,8 +234,7 @@ documentsRouter.patch("/:id", validateBody(updateDocumentSchema), async (req, re
 
 documentsRouter.delete("/:id", async (req, res) => {
   await assertOwner(req.params.id, req.user!.id);
-  await DocumentModel.findByIdAndDelete(req.params.id);
-  await DocumentPermissionModel.deleteMany({ documentId: new Types.ObjectId(req.params.id) });
+  await DocumentModel.findByIdAndUpdate(req.params.id, { deletedAt: new Date() });
   res.status(204).send();
 });
 

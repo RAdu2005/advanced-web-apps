@@ -5,7 +5,7 @@ import { DocumentPermissionModel } from "../models/DocumentPermission";
 
 export async function canAccessDocument(documentId: string, userId: string): Promise<boolean> {
   const doc = await DocumentModel.findById(documentId).lean();
-  if (!doc) {
+  if (!doc || doc.deletedAt) {
     throw new AppError(404, "DOCUMENT_NOT_FOUND", "Document not found");
   }
 
@@ -31,7 +31,7 @@ export async function assertCanAccessDocument(documentId: string, userId: string
 
 export async function assertOwner(documentId: string, userId: string): Promise<void> {
   const doc = await DocumentModel.findById(documentId).lean();
-  if (!doc) {
+  if (!doc || doc.deletedAt) {
     throw new AppError(404, "DOCUMENT_NOT_FOUND", "Document not found");
   }
 
