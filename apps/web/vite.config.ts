@@ -8,9 +8,5 @@ export default defineConfig({
   },
   preview: {
     allowedHosts: ["localhost", "127.0.0.1", "awa.larp.love"]
-  },
-  test: {
-    environment: "jsdom",
-    setupFiles: ["./src/test/setup.ts"]
   }
 });

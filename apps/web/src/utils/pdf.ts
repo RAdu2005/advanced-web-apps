@@ -1,5 +1,7 @@
 import { pdfExporter, type RawOrParsedDelta } from "quill-to-pdf";
 
+//Tool to convert Quill input to pdf and download
+//Uses quill-to-pdf which I found on Github
 interface PdfOptions {
   title: string;
   delta: RawOrParsedDelta;

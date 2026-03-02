@@ -1,6 +1,7 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
+//Self-explainatory redirect for routes requiring an account
 export function ProtectedRoute({ children }: { children: JSX.Element }) {
   const { user, loading } = useAuth();
   const location = useLocation();

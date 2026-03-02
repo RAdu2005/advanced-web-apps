@@ -42,6 +42,7 @@ interface AuthenticatedSocket extends Socket {
 
 const ROOM_PREFIX = "document:";
 const PERSIST_DEBOUNCE_MS = 600;
+// Ephemeral per-room state so we can sync fast without hitting Mongo on every keypress.
 const roomStates = new Map<string, RoomState>();
 
 function roomName(documentId: string): string {
@@ -67,6 +68,7 @@ function parseCookieHeader(cookieHeader: string | undefined): Record<string, str
 }
 
 function extractHandshakeToken(socket: Socket): string | null {
+  // Try auth payload first, then Authorization header, then fallback to cookie.
   const authToken =
     typeof socket.handshake.auth?.token === "string" ? socket.handshake.auth.token : null;
 
@@ -114,6 +116,7 @@ function schedulePersist(documentId: string, state: RoomState): void {
     clearTimeout(state.flushTimer);
   }
 
+  // Debounce writes so rapid typing doesn't spam the database.
   state.flushTimer = setTimeout(() => {
     void persistDocument(documentId, state).catch(() => {
       // Ignore persistence errors in timer loop; editors can continue and retry on next change.
@@ -123,6 +126,7 @@ function schedulePersist(documentId: string, state: RoomState): void {
 }
 
 function uniqueUserCount(state: RoomState): number {
+  // One user can have multiple tabs/sockets open; count unique user IDs instead.
   return new Set(state.activeUsers.values()).size;
 }
 
@@ -141,6 +145,7 @@ async function leaveDocument(io: Server, socket: AuthenticatedSocket): Promise<v
   state.activeUsers.delete(socket.id);
 
   if (state.activeUsers.size === 0) {
+    // Last person out flushes pending edits and frees memory for this room.
     if (state.flushTimer) {
       clearTimeout(state.flushTimer);
       state.flushTimer = null;
@@ -164,6 +169,7 @@ export function initializeCollaboration(httpServer: HttpServer): void {
   });
 
   io.use((socket, next) => {
+    // Socket auth uses the same JWT secret as HTTP routes.
     const token = extractHandshakeToken(socket);
     if (!token) {
       next(new Error("UNAUTHENTICATED"));

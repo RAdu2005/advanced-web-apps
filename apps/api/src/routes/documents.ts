@@ -23,6 +23,7 @@ function normalizeBaseTitle(input: string): string {
     return "Untitled document";
   }
 
+  // Strip existing " - Copy" suffix so clone naming stays clean and predictable.
   const match = trimmed.match(/^(.*?)(?: - Copy(?: \((\d+)\))?)?$/);
   const base = (match?.[1] ?? trimmed).trim();
   return base || "Untitled document";
@@ -55,6 +56,7 @@ function getUniqueCreatedTitle(requestedTitle: string, existingTitles: Set<strin
     return normalizedRequested;
   }
 
+  // Keep bumping "Copy (n)" until we find a free name.
   const baseTitle = normalizeBaseTitle(normalizedRequested);
   let index = 1;
   let candidate = buildClonedTitle(baseTitle, index);
@@ -98,6 +100,7 @@ documentsRouter.get("/", async (req, res) => {
     ? await DocumentModel.find({ _id: { $in: permissionDocIds }, deletedAt: null }).lean()
     : [];
 
+  // "Drive" view mixes docs the user owns plus docs shared for editing.
   const docs = [...ownedDocs, ...editableDocs].map(toDriveDocument);
 
   res.json(docs);
@@ -158,6 +161,7 @@ documentsRouter.delete("/trash", async (req, res) => {
   const ids = trashed.map((doc) => doc._id);
 
   if (ids.length > 0) {
+    // Hard-delete related rows too so we don't leave orphan permissions/sessions behind.
     await DocumentPermissionModel.deleteMany({ documentId: { $in: ids } });
     await EditingSessionModel.deleteMany({ documentId: { $in: ids } });
     await DocumentModel.deleteMany({ _id: { $in: ids } });

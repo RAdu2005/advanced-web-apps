@@ -9,6 +9,7 @@ export async function canAccessDocument(documentId: string, userId: string): Pro
     throw new AppError(404, "DOCUMENT_NOT_FOUND", "Document not found");
   }
 
+  // Owner always gets access, no extra lookup needed.
   if (doc.ownerId.toString() === userId) {
     return true;
   }

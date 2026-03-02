@@ -28,6 +28,7 @@ interface PresencePayload {
 }
 
 function normalizeId(doc: DriveDocument): string {
+  // Keeps UI stable regardless of API response shape.
   return doc.id ?? doc._id;
 }
 
@@ -71,9 +72,11 @@ export function EditorPage() {
   const quillRef = useRef<ReactQuill | null>(null);
   const socketRef = useRef<Socket | null>(null);
   const sendTimerRef = useRef<number | null>(null);
+  // Guards against reconnect acks overwriting edits already on screen.
   const initializedRealtimeRef = useRef(false);
 
   const isOwner = useMemo(() => Boolean(doc && user && doc.ownerId === user.id), [doc, user]);
+  // Presence includes you, so this is "everyone currently in the room".
   const collaboratorLabel = collaboratorCount === 1 ? "1 collaborator online" : `${collaboratorCount} collaborators online`;
 
   async function loadDocument() {
@@ -120,6 +123,7 @@ export function EditorPage() {
     if (!id) return;
 
     initializedRealtimeRef.current = false;
+    // One socket per open document page.
     const socket = io(API_BASE_URL, {
       withCredentials: true,
       transports: ["websocket", "polling"]
@@ -134,6 +138,7 @@ export function EditorPage() {
         }
 
         if (!initializedRealtimeRef.current) {
+          // Only hydrate once per join cycle; after that we trust live updates/local typing.
           setContent(typeof ack.content === "string" ? ack.content : "");
           if (typeof ack.title === "string") {
             setTitle(ack.title);
@@ -147,6 +152,7 @@ export function EditorPage() {
 
     socket.on("content_update", (payload: ContentUpdatePayload) => {
       if (typeof payload?.content !== "string") return;
+      // Remote edits replace current content; Quill handles cursor/ops client-side.
       setContent(payload.content);
       setStatus("Changes synced.");
     });
@@ -192,6 +198,7 @@ export function EditorPage() {
       window.clearTimeout(sendTimerRef.current);
     }
 
+    // Tiny debounce keeps typing smooth and cuts down websocket chatter.
     sendTimerRef.current = window.setTimeout(() => {
       if (!socket.connected) {
         return;
@@ -206,6 +213,7 @@ export function EditorPage() {
     event.preventDefault();
     if (!id) return;
 
+    // Explicit save still exists even with realtime sync, mostly for clear user feedback.
     const updated = await api.updateDocument(id, { title, content });
     setDoc(updated);
     setStatus("Saved");

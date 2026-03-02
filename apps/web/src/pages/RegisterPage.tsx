@@ -12,6 +12,7 @@ export function RegisterPage() {
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
+    // Reset old errors so the UI reflects only the latest attempt.
     setError("");
 
     try {

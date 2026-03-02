@@ -2,6 +2,7 @@ import "express-async-errors";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import express from "express";
+import { avatarUploadDir, defaultUserIconPath } from "./config/paths";
 import { env } from "./config/env";
 import { authRouter } from "./routes/auth";
 import { documentsRouter } from "./routes/documents";
@@ -34,6 +35,11 @@ app.use(cookieParser());
 
 app.get("/health", (_req, res) => {
   res.json({ ok: true });
+});
+
+app.use("/uploads/avatars", express.static(avatarUploadDir));
+app.get("/assets/user-icon", (_req, res) => {
+  res.sendFile(defaultUserIconPath);
 });
 
 app.use("/auth", authRouter);

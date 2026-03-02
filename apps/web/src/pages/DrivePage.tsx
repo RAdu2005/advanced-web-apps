@@ -1,25 +1,39 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { api, type DriveDocument } from "../api/client";
+import defaultUserIcon from "../../../../user_icon.png";
+import { api, resolveApiAssetUrl, type DriveDocument } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 
 function docId(doc: DriveDocument): string {
+  // API can return either `id` or `_id` depending on endpoint shape.
   return doc.id ?? doc._id;
 }
 
+const MAX_AVATAR_SIZE_BYTES = 2 * 1024 * 1024;
+const ALLOWED_AVATAR_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
+
 export function DrivePage() {
-  const { logout, user } = useAuth();
+  const { logout, uploadAvatar, user } = useAuth();
   const navigate = useNavigate();
+  const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const [documents, setDocuments] = useState<DriveDocument[]>([]);
   const [trashedDocuments, setTrashedDocuments] = useState<DriveDocument[]>([]);
   const [newTitle, setNewTitle] = useState("Untitled document");
   const [sortBy, setSortBy] = useState("updated_desc");
   const [recycleBinOpen, setRecycleBinOpen] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [trashLoading, setTrashLoading] = useState(true);
+  const avatarSrc = useMemo(() => {
+    if (!user?.avatarUrl) {
+      return defaultUserIcon;
+    }
+    return resolveApiAssetUrl(user.avatarUrl);
+  }, [user?.avatarUrl]);
 
   const sortedDocuments = useMemo(() => {
+    // Sort on a copied array so we never mutate React state directly.
     const docs = [...documents];
 
     docs.sort((a, b) => {
@@ -45,6 +59,7 @@ export function DrivePage() {
 
   const sortedTrashedDocuments = useMemo(() => {
     const docs = [...trashedDocuments];
+    // Newest deletions first so recent mistakes are easiest to restore.
     docs.sort((a, b) => {
       const left = a.deletedAt ? new Date(a.deletedAt).getTime() : 0;
       const right = b.deletedAt ? new Date(b.deletedAt).getTime() : 0;
@@ -57,6 +72,7 @@ export function DrivePage() {
     setLoading(true);
     setTrashLoading(true);
     try {
+      // Load active docs + recycle bin together to keep the dashboard snappy.
       const [docs, trash] = await Promise.all([api.listDocuments(), api.listTrash()]);
       setDocuments(docs);
       setTrashedDocuments(trash);
@@ -89,12 +105,14 @@ export function DrivePage() {
 
   async function renameDocument(id: string, title: string) {
     const nextTitle = window.prompt("New title", title);
+    // Skip no-op renames to avoid unnecessary API calls.
     if (!nextTitle || nextTitle === title) return;
     await api.updateDocument(id, { title: nextTitle });
     await loadDriveData();
   }
 
   async function removeDocument(id: string) {
+    // Delete here is soft-delete; item moves to recycle bin.
     await api.deleteDocument(id);
     await loadDriveData();
   }
@@ -138,17 +156,76 @@ export function DrivePage() {
     navigate("/login", { replace: true });
   }
 
+  function openAvatarPicker() {
+    avatarInputRef.current?.click();
+  }
+
+  async function handleAvatarPicked(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    setError("");
+
+    if (!ALLOWED_AVATAR_MIME_TYPES.has(file.type)) {
+      setError("Avatar must be PNG, JPG, or WEBP.");
+      event.target.value = "";
+      return;
+    }
+
+    if (file.size > MAX_AVATAR_SIZE_BYTES) {
+      setError("Avatar must be 2MB or smaller.");
+      event.target.value = "";
+      return;
+    }
+
+    setAvatarUploading(true);
+    try {
+      await uploadAvatar(file);
+    } catch (e) {
+      const message = typeof e === "object" && e && "message" in e ? String(e.message) : "Could not upload avatar";
+      setError(message);
+    } finally {
+      setAvatarUploading(false);
+      event.target.value = "";
+    }
+  }
+
   return (
     <div className="min-h-screen p-4 md:p-8">
       <div className="mx-auto max-w-5xl space-y-6">
         <header className="rounded-lg bg-white p-4 shadow flex flex-col gap-3 md:flex-row md:justify-between md:items-center dark:bg-slate-800 dark:ring-1 dark:ring-slate-700">
           <div>
             <h1 className="text-2xl font-semibold">Cloud Drive</h1>
-            <p className="text-sm text-slate-600 dark:text-slate-300">Signed in as {user?.displayName}</p>
+            <p className="text-sm text-slate-600 dark:text-slate-300">
+              Signed in as {user?.displayName}
+            </p>
           </div>
-          <button className="rounded border border-slate-300 px-3 py-2 dark:border-slate-600 dark:text-slate-100" onClick={handleLogout}>
-            Log out
-          </button>
+          <div className="flex items-center gap-3">
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              className="hidden"
+              onChange={handleAvatarPicked}
+            />
+            <button
+              className="flex items-center gap-2 rounded border border-slate-300 px-2 py-1.5 text-left dark:border-slate-600 dark:text-slate-100"
+              onClick={openAvatarPicker}
+              type="button"
+              disabled={avatarUploading}
+              title="Upload profile icon"
+            >
+              <img src={avatarSrc} alt={`${user?.displayName ?? "User"} avatar`} className="h-8 w-8 rounded-full object-cover" />
+              <span className="text-sm">
+                {avatarUploading ? "Uploading..." : user?.displayName ?? "User"}
+              </span>
+            </button>
+            <button className="rounded border border-slate-300 px-3 py-2 dark:border-slate-600 dark:text-slate-100" onClick={handleLogout}>
+              Log out
+            </button>
+          </div>
         </header>
 
         <form className="rounded-lg bg-white p-4 shadow flex flex-col gap-3 md:flex-row dark:bg-slate-800 dark:ring-1 dark:ring-slate-700" onSubmit={createDocument}>

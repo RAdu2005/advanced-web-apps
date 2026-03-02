@@ -7,6 +7,7 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, displayName: string) => Promise<void>;
   logout: () => Promise<void>;
+  uploadAvatar: (file: File) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -16,6 +17,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // On first load ask backend if session cookie is still valid
     api.me()
       .then((me) => setUser(me))
       .catch(() => setUser(null))
@@ -37,6 +39,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       logout: async () => {
         await api.logout();
         setUser(null);
+      },
+      uploadAvatar: async (file) => {
+        const updated = await api.uploadAvatar(file);
+        setUser(updated);
       }
     }),
     [user, loading]
@@ -45,6 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+//Custom hook for handling auth state
 export function useAuth(): AuthContextValue {
   const context = useContext(AuthContext);
   if (!context) {
