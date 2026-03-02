@@ -188,13 +188,13 @@ export function EditorPage() {
       <div className="mx-auto max-w-6xl space-y-4">
         <div className="flex items-center justify-between">
           <Link to="/drive" className="text-blue-700">Back to drive</Link>
-          <p className="text-sm text-slate-600">{status}</p>
+          <p className="text-sm text-slate-600 dark:text-slate-300">{status}</p>
         </div>
 
         <div className="grid gap-4 lg:grid-cols-3">
-          <form className="rounded bg-white p-4 shadow lg:col-span-2 space-y-3" onSubmit={saveDocument}>
+          <form className="rounded bg-white p-4 shadow lg:col-span-2 space-y-3 dark:bg-slate-800 dark:ring-1 dark:ring-slate-700" onSubmit={saveDocument}>
             <input
-              className="w-full rounded border p-2 font-medium"
+              className="w-full rounded border p-2 font-medium dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
               value={title}
               onChange={(event) => setTitle(event.target.value)}
               disabled={lockBlocked}
@@ -214,7 +214,7 @@ export function EditorPage() {
                 Save
               </button>
               <button
-                className="rounded border px-4 py-2 disabled:opacity-50"
+                className="rounded border px-4 py-2 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100"
                 type="button"
                 onClick={() => void downloadPdf()}
                 disabled={!doc || pdfLoading}
@@ -222,7 +222,7 @@ export function EditorPage() {
                 {pdfLoading ? "Generating PDF..." : "Download PDF"}
               </button>
               {lockBlocked ? (
-                <button className="rounded border px-4 py-2" type="button" onClick={resumeEditing}>
+                <button className="rounded border px-4 py-2 dark:border-slate-600 dark:text-slate-100" type="button" onClick={resumeEditing}>
                   Resume editing
                 </button>
               ) : null}
@@ -230,23 +230,23 @@ export function EditorPage() {
           </form>
 
           <aside className="space-y-4">
-            <section className="rounded bg-white p-4 shadow space-y-2">
+            <section className="rounded bg-white p-4 shadow space-y-2 dark:bg-slate-800 dark:ring-1 dark:ring-slate-700">
               <h2 className="font-semibold">Share (read-only)</h2>
               {shareLink ? (
                 <>
-                  <input className="w-full rounded border p-2 text-sm" value={shareLink} readOnly />
-                  <button className="w-full rounded border px-3 py-2" onClick={() => void navigator.clipboard.writeText(shareLink)}>
+                  <input className="w-full rounded border p-2 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100" value={shareLink} readOnly />
+                  <button className="w-full rounded border px-3 py-2 dark:border-slate-600 dark:text-slate-100" onClick={() => void navigator.clipboard.writeText(shareLink)}>
                     Copy link
                   </button>
                   {isOwner ? (
-                    <button className="w-full rounded border border-red-300 px-3 py-2 text-red-700" onClick={() => void revokeShareLink()}>
+                    <button className="w-full rounded border border-red-300 px-3 py-2 text-red-700 dark:border-red-400/60 dark:text-red-300" onClick={() => void revokeShareLink()}>
                       Revoke link
                     </button>
                   ) : null}
                 </>
               ) : (
                 <>
-                  <p className="text-sm text-slate-600">No active public link.</p>
+                  <p className="text-sm text-slate-600 dark:text-slate-300">No active public link.</p>
                   {isOwner ? (
                     <button className="w-full rounded bg-blue-700 px-3 py-2 text-white" onClick={() => void generateShareLink()}>
                       Generate link
@@ -257,11 +257,11 @@ export function EditorPage() {
             </section>
 
             {isOwner ? (
-              <section className="rounded bg-white p-4 shadow space-y-2">
+              <section className="rounded bg-white p-4 shadow space-y-2 dark:bg-slate-800 dark:ring-1 dark:ring-slate-700">
                 <h2 className="font-semibold">Editors</h2>
                 <form className="flex gap-2" onSubmit={addEditor}>
                   <input
-                    className="flex-1 rounded border p-2 text-sm"
+                    className="flex-1 rounded border p-2 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
                     type="email"
                     value={editorEmail}
                     onChange={(event) => {
@@ -276,21 +276,21 @@ export function EditorPage() {
                 {editorError ? <p className="text-sm text-red-600">{editorError}</p> : null}
                 <div className="space-y-2">
                   {editors.map((editor) => (
-                    <div key={editor.userId} className="flex items-center justify-between rounded border p-2 text-sm">
+                    <div key={editor.userId} className="flex items-center justify-between rounded border p-2 text-sm dark:border-slate-600 dark:bg-slate-900">
                       <span>{editor.email}</span>
-                      <button className="text-red-700" onClick={() => void removeEditor(editor.userId)}>
+                      <button className="text-red-700 dark:text-red-300" onClick={() => void removeEditor(editor.userId)}>
                         Remove
                       </button>
                     </div>
                   ))}
-                  {editors.length === 0 ? <p className="text-sm text-slate-600">No additional editors.</p> : null}
+                  {editors.length === 0 ? <p className="text-sm text-slate-600 dark:text-slate-300">No additional editors.</p> : null}
                 </div>
               </section>
             ) : null}
           </aside>
         </div>
 
-        <p className="text-xs text-slate-500">Document ID: {doc ? normalizeId(doc) : "-"}</p>
+        <p className="text-xs text-slate-500 dark:text-slate-400">Document ID: {doc ? normalizeId(doc) : "-"}</p>
       </div>
     </div>
   );

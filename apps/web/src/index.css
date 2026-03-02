@@ -4,4 +4,36 @@
 
 body {
   font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  @apply bg-slate-100 text-slate-900 transition-colors dark:bg-slate-900 dark:text-slate-100;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.dark .ql-toolbar.ql-snow {
+  border-color: rgb(51 65 85);
+  background-color: rgb(30 41 59);
+}
+
+.dark .ql-container.ql-snow {
+  border-color: rgb(51 65 85);
+  background-color: rgb(15 23 42);
+  color: rgb(241 245 249);
+}
+
+.dark .ql-snow .ql-stroke {
+  stroke: rgb(226 232 240);
+}
+
+.dark .ql-snow .ql-fill {
+  fill: rgb(226 232 240);
+}
+
+.dark .ql-snow .ql-picker {
+  color: rgb(226 232 240);
+}
+
+.dark .ql-editor.ql-blank::before {
+  color: rgb(148 163 184);
 }

@@ -141,19 +141,19 @@ export function DrivePage() {
   return (
     <div className="min-h-screen p-4 md:p-8">
       <div className="mx-auto max-w-5xl space-y-6">
-        <header className="rounded-lg bg-white p-4 shadow flex flex-col gap-3 md:flex-row md:justify-between md:items-center">
+        <header className="rounded-lg bg-white p-4 shadow flex flex-col gap-3 md:flex-row md:justify-between md:items-center dark:bg-slate-800 dark:ring-1 dark:ring-slate-700">
           <div>
             <h1 className="text-2xl font-semibold">Cloud Drive</h1>
-            <p className="text-sm text-slate-600">Signed in as {user?.displayName}</p>
+            <p className="text-sm text-slate-600 dark:text-slate-300">Signed in as {user?.displayName}</p>
           </div>
-          <button className="rounded border border-slate-300 px-3 py-2" onClick={handleLogout}>
+          <button className="rounded border border-slate-300 px-3 py-2 dark:border-slate-600 dark:text-slate-100" onClick={handleLogout}>
             Logout
           </button>
         </header>
 
-        <form className="rounded-lg bg-white p-4 shadow flex flex-col gap-3 md:flex-row" onSubmit={createDocument}>
+        <form className="rounded-lg bg-white p-4 shadow flex flex-col gap-3 md:flex-row dark:bg-slate-800 dark:ring-1 dark:ring-slate-700" onSubmit={createDocument}>
           <input
-            className="flex-1 rounded border p-2"
+            className="flex-1 rounded border p-2 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
             value={newTitle}
             onChange={(event) => setNewTitle(event.target.value)}
             placeholder="Document title"
@@ -166,14 +166,14 @@ export function DrivePage() {
 
         {error && <p className="text-sm text-red-600">{error}</p>}
 
-        <section className="rounded-lg bg-white p-4 shadow">
+        <section className="rounded-lg bg-white p-4 shadow dark:bg-slate-800 dark:ring-1 dark:ring-slate-700">
           <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             <h2 className="text-lg font-semibold">My accessible documents</h2>
             <div className="flex items-center gap-2">
-              <label className="text-sm text-slate-600" htmlFor="sort-documents">Sort by</label>
+              <label className="text-sm text-slate-600 dark:text-slate-300" htmlFor="sort-documents">Sort by</label>
               <select
                 id="sort-documents"
-                className="rounded border p-2 text-sm"
+                className="rounded border p-2 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
                 value={sortBy}
                 onChange={(event) => setSortBy(event.target.value)}
               >
@@ -187,27 +187,27 @@ export function DrivePage() {
             </div>
           </div>
           {loading ? <p>Loading...</p> : null}
-          {!loading && documents.length === 0 ? <p className="text-slate-600">No documents yet.</p> : null}
+          {!loading && documents.length === 0 ? <p className="text-slate-600 dark:text-slate-300">No documents yet.</p> : null}
           <div className="space-y-3">
             {sortedDocuments.map((doc) => (
-              <div key={docId(doc)} className="rounded border p-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+              <div key={docId(doc)} className="rounded border p-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between dark:border-slate-600 dark:bg-slate-900">
                 <div>
                   <p className="font-medium">{doc.title}</p>
-                  <p className="text-xs text-slate-500">Updated {new Date(doc.updatedAt).toLocaleString()}</p>
-                  <p className="text-xs text-slate-500">Created {new Date(doc.createdAt).toLocaleString()}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Updated {new Date(doc.updatedAt).toLocaleString()}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Created {new Date(doc.createdAt).toLocaleString()}</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Link className="rounded bg-blue-700 px-3 py-1.5 text-sm text-white" to={`/documents/${docId(doc)}`}>
                     Open
                   </Link>
-                  <button className="rounded border px-3 py-1.5 text-sm" onClick={() => void renameDocument(docId(doc), doc.title)}>
+                  <button className="rounded border px-3 py-1.5 text-sm dark:border-slate-600 dark:text-slate-100" onClick={() => void renameDocument(docId(doc), doc.title)}>
                     Rename
                   </button>
-                  <button className="rounded border px-3 py-1.5 text-sm" onClick={() => void cloneDocument(docId(doc))}>
+                  <button className="rounded border px-3 py-1.5 text-sm dark:border-slate-600 dark:text-slate-100" onClick={() => void cloneDocument(docId(doc))}>
                     Clone
                   </button>
                   {doc.ownerId === user?.id ? (
-                    <button className="rounded border border-red-300 px-3 py-1.5 text-sm text-red-700" onClick={() => void removeDocument(docId(doc))}>
+                    <button className="rounded border border-red-300 px-3 py-1.5 text-sm text-red-700 dark:border-red-400/60 dark:text-red-300" onClick={() => void removeDocument(docId(doc))}>
                       Delete
                     </button>
                   ) : null}
@@ -217,7 +217,7 @@ export function DrivePage() {
           </div>
         </section>
 
-        <section className="rounded-lg bg-white p-4 shadow">
+        <section className="rounded-lg bg-white p-4 shadow dark:bg-slate-800 dark:ring-1 dark:ring-slate-700">
           <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             <button
               className="text-left text-lg font-semibold"
@@ -227,7 +227,7 @@ export function DrivePage() {
             </button>
             {trashedDocuments.length > 0 ? (
               <button
-                className="rounded border border-red-300 px-3 py-2 text-sm text-red-700"
+                className="rounded border border-red-300 px-3 py-2 text-sm text-red-700 dark:border-red-400/60 dark:text-red-300"
                 onClick={() => void emptyRecycleBin()}
               >
                 Empty recycle bin
@@ -239,23 +239,23 @@ export function DrivePage() {
             <div className="mt-4 space-y-3">
               {trashLoading ? <p>Loading recycle bin...</p> : null}
               {!trashLoading && sortedTrashedDocuments.length === 0 ? (
-                <p className="text-slate-600">Recycle bin is empty.</p>
+                <p className="text-slate-600 dark:text-slate-300">Recycle bin is empty.</p>
               ) : null}
 
               {sortedTrashedDocuments.map((doc) => (
                 <div
                   key={docId(doc)}
-                  className="rounded border border-slate-200 p-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between"
+                  className="rounded border border-slate-200 p-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between dark:border-slate-600 dark:bg-slate-900"
                 >
                   <div>
                     <p className="font-medium">{doc.title}</p>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
                       Deleted {doc.deletedAt ? new Date(doc.deletedAt).toLocaleString() : "-"}
                     </p>
-                    <p className="text-xs text-slate-500">Created {new Date(doc.createdAt).toLocaleString()}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Created {new Date(doc.createdAt).toLocaleString()}</p>
                   </div>
                   <button
-                    className="rounded border px-3 py-1.5 text-sm"
+                    className="rounded border px-3 py-1.5 text-sm dark:border-slate-600 dark:text-slate-100"
                     onClick={() => void restoreDocument(docId(doc))}
                   >
                     Restore

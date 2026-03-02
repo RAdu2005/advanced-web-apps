@@ -5,30 +5,34 @@ import { DrivePage } from "./pages/DrivePage";
 import { EditorPage } from "./pages/EditorPage";
 import { SharedPage } from "./pages/SharedPage";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { ThemeToggle } from "./components/ThemeToggle";
 
 export function App() {
   return (
-    <Routes>
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/register" element={<RegisterPage />} />
-      <Route path="/shared/:token" element={<SharedPage />} />
-      <Route
-        path="/drive"
-        element={
-          <ProtectedRoute>
-            <DrivePage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/documents/:id"
-        element={
-          <ProtectedRoute>
-            <EditorPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route path="*" element={<Navigate to="/drive" replace />} />
-    </Routes>
+    <>
+      <ThemeToggle />
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/shared/:token" element={<SharedPage />} />
+        <Route
+          path="/drive"
+          element={
+            <ProtectedRoute>
+              <DrivePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/documents/:id"
+          element={
+            <ProtectedRoute>
+              <EditorPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="*" element={<Navigate to="/drive" replace />} />
+      </Routes>
+    </>
   );
 }

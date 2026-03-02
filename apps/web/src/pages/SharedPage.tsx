@@ -25,14 +25,14 @@ export function SharedPage() {
   if (error) {
     return (
       <div className="min-h-screen p-8">
-        <p className="text-red-700">{error}</p>
+        <p className="text-red-700 dark:text-red-300">{error}</p>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen p-4 md:p-8">
-      <div className="mx-auto max-w-3xl rounded bg-white p-4 shadow space-y-3">
+      <div className="mx-auto max-w-3xl rounded bg-white p-4 shadow space-y-3 dark:bg-slate-800 dark:ring-1 dark:ring-slate-700">
         <div className="flex justify-between items-center">
           <h1 className="text-xl font-semibold">{title}</h1>
           <Link to="/login" className="text-blue-700">Login</Link>

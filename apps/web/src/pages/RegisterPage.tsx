@@ -27,13 +27,13 @@ export function RegisterPage() {
     <div className="min-h-screen flex items-center justify-center flex-col p-4">
       <div className="flex items-center justify-center flex-col pb-12">
         <h1 className="pb-1 font-bold text-3xl">Radu's Docshare</h1>
-        <h2 className="text-lg text-slate-500">Enjoy your time!</h2>
+        <h2 className="text-lg text-slate-500 dark:text-slate-300">Enjoy your time!</h2>
       </div>
 
-      <form className="w-full max-w-md rounded-lg bg-white p-6 shadow space-y-4" onSubmit={handleSubmit}>
+      <form className="w-full max-w-md rounded-lg bg-white p-6 shadow space-y-4 dark:bg-slate-800 dark:ring-1 dark:ring-slate-700" onSubmit={handleSubmit}>
         <h1 className="text-xl font-semibold">Register</h1>
         <input
-          className="w-full rounded border p-2"
+          className="w-full rounded border p-2 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
           type="text"
           placeholder="Display name"
           value={displayName}
@@ -41,7 +41,7 @@ export function RegisterPage() {
           required
         />
         <input
-          className="w-full rounded border p-2"
+          className="w-full rounded border p-2 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
           type="email"
           placeholder="Email"
           value={email}
@@ -49,7 +49,7 @@ export function RegisterPage() {
           required
         />
         <input
-          className="w-full rounded border p-2"
+          className="w-full rounded border p-2 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
           type="password"
           placeholder="Password"
           value={password}
@@ -60,7 +60,7 @@ export function RegisterPage() {
         <button className="w-full rounded bg-slate-900 text-white py-2" type="submit">
           Create account
         </button>
-        <p className="text-sm text-slate-600">
+        <p className="text-sm text-slate-600 dark:text-slate-300">
           Already registered? <Link className="text-blue-700" to="/login">Login</Link>
         </p>
       </form>
