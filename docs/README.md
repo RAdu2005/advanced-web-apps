@@ -53,6 +53,3 @@ API (`apps/api/.env`):
 - Public shared links are read-only.
 - Only owner can delete docs, manage editors, and share links.
 
-## Vercel deployment branch sync
-- A dedicated workflow is documented in `docs/VERCEL_SYNC.md`.
-- Use `npm run sync:vercel` to generate/update and push a Vercel-ready branch snapshot.
