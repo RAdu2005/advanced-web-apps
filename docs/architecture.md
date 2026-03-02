@@ -13,7 +13,7 @@
 - `User`: account credentials and display name
 - `Document`: plain text content and owner
 - `DocumentPermission`: editor rights for existing users
-- `EditingSession`: single active editor lock with lease expiry
+- `EditingSession`: legacy edit-session compatibility model (lock no longer enforced in multi-writer mode)
 
 ## API summary
 - Auth: `POST /auth/register`, `POST /auth/login`, `POST /auth/logout`, `GET /auth/me`
@@ -24,5 +24,5 @@
 
 ## Concurrency abstraction
 - `EditingPolicy` interface introduced for future extension.
-- Current implementation: `SingleWriterPolicy`.
-- Future upgrade path: implement `MultiWriterPolicy` and websocket collaboration while preserving route/service contracts.
+- Current implementation: `MultiWriterPolicy` (no lock blocking).
+- Realtime collaboration is handled by Socket.IO document rooms with live content broadcast + debounced persistence.

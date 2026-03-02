@@ -247,7 +247,7 @@ describe("API integration", () => {
     expect(trashAfterEmpty.body.length).toBe(0);
   });
 
-  it("single writer lock blocks other users", async () => {
+  it("edit sessions allow multiple users in multi-writer mode", async () => {
     const owner = await registerUser("lock-owner@test.com", "password1", "Owner");
     const ownerCookie = owner.headers["set-cookie"][0];
 
@@ -271,7 +271,7 @@ describe("API integration", () => {
     expect(ownerStart.status).toBe(200);
 
     const editorStart = await request(app).post(`/documents/${docId}/edit-session/start`).set("Cookie", editorCookie);
-    expect(editorStart.status).toBe(409);
+    expect(editorStart.status).toBe(200);
 
     const ownerEnd = await request(app).post(`/documents/${docId}/edit-session/end`).set("Cookie", ownerCookie);
     expect(ownerEnd.status).toBe(204);

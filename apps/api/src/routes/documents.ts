@@ -219,11 +219,6 @@ documentsRouter.patch("/:id", validateBody(updateDocumentSchema), async (req, re
     req.body.title = normalizedTitle;
   }
 
-  const lockStatus = await editingPolicy.status(req.params.id);
-  if (lockStatus.locked && lockStatus.userId !== req.user!.id) {
-    throw new AppError(409, "EDIT_LOCKED", "Document is currently being edited", lockStatus);
-  }
-
   const doc = await DocumentModel.findByIdAndUpdate(req.params.id, req.body, { new: true }).lean();
   if (!doc) {
     throw new AppError(404, "DOCUMENT_NOT_FOUND", "Document not found");

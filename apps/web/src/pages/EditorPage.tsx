@@ -1,13 +1,30 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import ReactQuill from "react-quill";
-import { api, type DriveDocument } from "../api/client";
+import { io, Socket } from "socket.io-client";
+import { api, API_BASE_URL, type DriveDocument } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { downloadDocumentAsPdf } from "../utils/pdf";
 
 interface EditorPermission {
   userId: string;
   email: string;
+}
+
+interface JoinAck {
+  ok: boolean;
+  message?: string;
+  content?: string;
+  title?: string;
+}
+
+interface ContentUpdatePayload {
+  content: string;
+  updatedBy?: string;
+}
+
+interface PresencePayload {
+  count: number;
 }
 
 function normalizeId(doc: DriveDocument): string {
@@ -45,16 +62,19 @@ export function EditorPage() {
   const [content, setContent] = useState("");
   const [title, setTitle] = useState("");
   const [status, setStatus] = useState("Loading...");
-  const [lockBlocked, setLockBlocked] = useState(false);
+  const [collaboratorCount, setCollaboratorCount] = useState(1);
   const [shareLink, setShareLink] = useState("");
   const [editorEmail, setEditorEmail] = useState("");
   const [editorError, setEditorError] = useState("");
   const [pdfLoading, setPdfLoading] = useState(false);
   const [editors, setEditors] = useState<EditorPermission[]>([]);
-  const heartbeatRef = useRef<number | null>(null);
   const quillRef = useRef<ReactQuill | null>(null);
+  const socketRef = useRef<Socket | null>(null);
+  const sendTimerRef = useRef<number | null>(null);
+  const initializedRealtimeRef = useRef(false);
 
   const isOwner = useMemo(() => Boolean(doc && user && doc.ownerId === user.id), [doc, user]);
+  const collaboratorLabel = collaboratorCount === 1 ? "1 collaborator online" : `${collaboratorCount} collaborators online`;
 
   async function loadDocument() {
     if (!id) return;
@@ -71,27 +91,10 @@ export function EditorPage() {
         setShareLink("");
       }
 
-      const lock = await api.startEditSession(id);
-      setLockBlocked(false);
-      setStatus(lock.status === "already_owner" ? "Resumed previous editing session." : "Editing lock acquired.");
-
-      if (heartbeatRef.current) {
-        window.clearInterval(heartbeatRef.current);
-      }
-      heartbeatRef.current = window.setInterval(() => {
-        void api.heartbeat(id).catch(() => {
-          setStatus("Could not refresh editing lock. Please try to resume.");
-          setLockBlocked(true);
-        });
-      }, 60_000);
+      setStatus("Connecting realtime collaboration...");
     } catch (e) {
-      const err = e as { code?: string; message?: string; details?: { activeEditorUserId?: string } };
-      if (err.code === "EDIT_LOCKED") {
-        setLockBlocked(true);
-        setStatus(`Document is currently edited by user ${err.details?.activeEditorUserId ?? "unknown"}.`);
-      } else {
-        setStatus(err.message ?? "Could not load document");
-      }
+      const err = e as { message?: string };
+      setStatus(err.message ?? "Could not load document");
     }
   }
 
@@ -107,23 +110,101 @@ export function EditorPage() {
 
   useEffect(() => {
     void loadDocument();
-    return () => {
-      if (heartbeatRef.current) {
-        window.clearInterval(heartbeatRef.current);
-      }
-      if (id) {
-        void api.endEditSession(id);
-      }
-    };
   }, [id]);
 
   useEffect(() => {
     void loadEditors();
   }, [id, isOwner]);
 
+  useEffect(() => {
+    if (!id) return;
+
+    initializedRealtimeRef.current = false;
+    const socket = io(API_BASE_URL, {
+      withCredentials: true,
+      transports: ["websocket", "polling"]
+    });
+    socketRef.current = socket;
+
+    socket.on("connect", () => {
+      socket.emit("join_document", { documentId: id }, (ack: JoinAck) => {
+        if (!ack?.ok) {
+          setStatus(ack?.message ?? "Could not join collaboration room");
+          return;
+        }
+
+        if (!initializedRealtimeRef.current) {
+          setContent(typeof ack.content === "string" ? ack.content : "");
+          if (typeof ack.title === "string") {
+            setTitle(ack.title);
+          }
+          initializedRealtimeRef.current = true;
+        }
+
+        setStatus("Realtime connected.");
+      });
+    });
+
+    socket.on("content_update", (payload: ContentUpdatePayload) => {
+      if (typeof payload?.content !== "string") return;
+      setContent(payload.content);
+      setStatus("Changes synced.");
+    });
+
+    socket.on("presence_update", (payload: PresencePayload) => {
+      if (typeof payload?.count !== "number") return;
+      setCollaboratorCount(Math.max(1, payload.count));
+    });
+
+    socket.on("disconnect", () => {
+      setStatus("Realtime disconnected. Reconnecting...");
+    });
+
+    socket.on("connect_error", () => {
+      setStatus("Realtime connection failed.");
+    });
+
+    return () => {
+      if (sendTimerRef.current) {
+        window.clearTimeout(sendTimerRef.current);
+        sendTimerRef.current = null;
+      }
+
+      socket.disconnect();
+      socketRef.current = null;
+      setCollaboratorCount(1);
+    };
+  }, [id]);
+
+  function handleContentChange(nextContent: string, _delta: unknown, source: string) {
+    setContent(nextContent);
+
+    if (source !== "user") {
+      return;
+    }
+
+    const socket = socketRef.current;
+    if (!socket) {
+      return;
+    }
+
+    if (sendTimerRef.current) {
+      window.clearTimeout(sendTimerRef.current);
+    }
+
+    sendTimerRef.current = window.setTimeout(() => {
+      if (!socket.connected) {
+        return;
+      }
+
+      socket.emit("content_update", { content: nextContent });
+      setStatus("Syncing changes...");
+    }, 120);
+  }
+
   async function saveDocument(event: FormEvent) {
     event.preventDefault();
-    if (!id || lockBlocked) return;
+    if (!id) return;
 
     const updated = await api.updateDocument(id, { title, content });
     setDoc(updated);
@@ -163,11 +244,6 @@ export function EditorPage() {
     await loadEditors();
   }
 
-  async function resumeEditing() {
-    if (!id) return;
-    await loadDocument();
-  }
-
   async function downloadPdf() {
     const delta = quillRef.current?.getEditor().getContents();
     if (!delta) {
@@ -188,7 +264,10 @@ export function EditorPage() {
       <div className="mx-auto max-w-6xl space-y-4">
         <div className="flex items-center justify-between">
           <Link to="/drive" className="text-blue-700">Back to drive</Link>
-          <p className="text-sm text-slate-600 dark:text-slate-300">{status}</p>
+          <div className="text-right">
+            <p className="text-sm text-slate-600 dark:text-slate-300">{status}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">{collaboratorLabel}</p>
+          </div>
         </div>
 
         <div className="grid gap-4 lg:grid-cols-3">
@@ -197,20 +276,18 @@ export function EditorPage() {
               className="w-full rounded border p-2 font-medium dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
               value={title}
               onChange={(event) => setTitle(event.target.value)}
-              disabled={lockBlocked}
             />
             <ReactQuill
               ref={quillRef}
               theme="snow"
               value={content}
-              onChange={setContent}
-              readOnly={lockBlocked}
+              onChange={handleContentChange}
               modules={quillModules}
               formats={quillFormats}
               className="h-[420px] [&_.ql-container]:h-[370px]"
             />
             <div className="flex gap-2">
-              <button className="rounded bg-slate-900 px-4 py-2 text-white disabled:opacity-50" disabled={lockBlocked || !doc}>
+              <button className="rounded bg-slate-900 px-4 py-2 text-white disabled:opacity-50" disabled={!doc}>
                 Save
               </button>
               <button
@@ -221,11 +298,6 @@ export function EditorPage() {
               >
                 {pdfLoading ? "Generating PDF..." : "Download PDF"}
               </button>
-              {lockBlocked ? (
-                <button className="rounded border px-4 py-2 dark:border-slate-600 dark:text-slate-100" type="button" onClick={resumeEditing}>
-                  Resume editing
-                </button>
-              ) : null}
             </div>
           </form>
 
