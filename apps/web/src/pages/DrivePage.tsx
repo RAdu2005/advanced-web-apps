@@ -147,7 +147,7 @@ export function DrivePage() {
             <p className="text-sm text-slate-600 dark:text-slate-300">Signed in as {user?.displayName}</p>
           </div>
           <button className="rounded border border-slate-300 px-3 py-2 dark:border-slate-600 dark:text-slate-100" onClick={handleLogout}>
-            Logout
+            Log out
           </button>
         </header>
 
