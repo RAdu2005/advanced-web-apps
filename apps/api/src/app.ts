@@ -10,7 +10,15 @@ import { shareRouter } from "./routes/share";
 import { errorHandler } from "./middleware/error-handler";
 
 export const app = express();
-const allowedOrigins = env.CORS_ORIGIN.split(",").map((origin) => origin.trim()).filter(Boolean);
+
+function normalizeOrigin(value: string): string {
+  return value.trim().replace(/\/+$/, "");
+}
+
+const allowedOrigins = env.CORS_ORIGIN
+  .split(",")
+  .map((origin) => normalizeOrigin(origin))
+  .filter(Boolean);
 
 app.use(
   cors({
@@ -20,7 +28,7 @@ app.use(
         return;
       }
 
-      if (allowedOrigins.includes(origin)) {
+      if (allowedOrigins.includes(normalizeOrigin(origin))) {
         callback(null, true);
         return;
       }
