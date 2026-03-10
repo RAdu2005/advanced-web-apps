@@ -32,6 +32,7 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/apps/api/package.json ./apps/api/package.json
 COPY --from=build /app/apps/api/dist ./apps/api/dist
 COPY --from=build /app/apps/web/package.json ./apps/web/package.json
+COPY --from=build /app/apps/web/vite.config.ts ./apps/web/vite.config.ts
 COPY --from=build /app/apps/web/dist ./apps/web/dist
 COPY --from=build /app/user_icon.png ./user_icon.png
 
