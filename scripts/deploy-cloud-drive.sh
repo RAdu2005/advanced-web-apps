@@ -36,6 +36,7 @@ docker rm -f "${CONTAINER_NAME}" >/dev/null 2>&1 || true
 docker run -d \
   --name "${CONTAINER_NAME}" \
   --restart unless-stopped \
+  --add-host host.docker.internal:host-gateway \
   --env-file "${ENV_FILE}" \
   -e NODE_ENV=production \
   -e PORT=4000 \
