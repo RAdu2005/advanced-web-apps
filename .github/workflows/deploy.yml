@@ -16,4 +16,12 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Deploy
-        run: /usr/local/bin/deploy-cloud-drive.sh
+        env:
+          API_PORT: ${{ vars.API_PORT }}
+          WEB_PORT: ${{ vars.WEB_PORT }}
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+          ENV_FILE: ${{ vars.ENV_FILE }}
+          IMAGE_NAME: ${{ vars.IMAGE_NAME }}
+          CONTAINER_NAME: ${{ vars.CONTAINER_NAME }}
+          UPLOADS_VOLUME: ${{ vars.UPLOADS_VOLUME }}
+        run: bash ./scripts/deploy-cloud-drive.sh
