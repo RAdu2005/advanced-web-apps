@@ -3,9 +3,9 @@ set -euo pipefail
 
 cd /var/www/cloud-drive
 
-git fetch origin master
-git checkout master
-git pull --ff-only origin master
+git fetch origin docker-deploy
+git checkout docker-deploy
+git pull --ff-only origin docker-deploy
 
 IMAGE_NAME="${IMAGE_NAME:-cloud-drive:latest}"
 CONTAINER_NAME="${CONTAINER_NAME:-cloud-drive}"
